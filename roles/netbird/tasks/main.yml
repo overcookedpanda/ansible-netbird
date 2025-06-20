@@ -1,17 +1,37 @@
 ---
 # tasks file for netbird
-- name: Check for Netbird Installation
+- name: Check for Netbird Installation and version
   ansible.builtin.shell:
     cmd: netbird version
   ignore_errors: true
   register: netbird_installed
+  changed_when: false
+
+- name: Set Netbird installation facts
+  ansible.builtin.set_fact:
+    netbird_is_installed: "{{ netbird_installed.rc == 0 }}"
+    netbird_current_version: "{{ netbird_installed.stdout | default('') }}"
+    netbird_desired_version_normalized: "{{ netbird_version | regex_replace('^v', '') }}"
 
 - name: Install netbird
-  ansible.builtin.shell: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-  when: netbird_installed.rc != 0
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+  environment:
+    NETBIRD_RELEASE: "{{ netbird_version }}"
+  when: not netbird_is_installed
 
-- name: Ensure netbird is not up
-  shell:
+- name: Update netbird to desired version
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+  environment:
+    NETBIRD_RELEASE: "{{ netbird_version }}"
+    UPDATE_NETBIRD: "true"
+  when:
+    - netbird_is_installed
+    - netbird_version == "latest" or netbird_desired_version_normalized != netbird_current_version
+
+- name: Check netbird daemon status
+  ansible.builtin.shell:
     cmd: 'netbird status | grep "Daemon status"'
   register: netbird_status
   changed_when: false
@@ -21,6 +41,6 @@
 - name: Start Netbird
   become: true
   ansible.builtin.shell: netbird up --setup-key="{{ netbird_setup_key }}" --management-url="{{ netbird_mgmt_url }}"
-  when: 
+  when:
     - netbird_register is true
     - "'NeedsLogin' in netbird_status.stdout or 'LoginFailed' in netbird_status.stdout"
