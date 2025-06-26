@@ -20,12 +20,52 @@
     NETBIRD_RELEASE: "{{ netbird_version }}"
   when: not netbird_is_installed
 
-- name: Update netbird to desired version
-  ansible.builtin.shell:
-    cmd: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-  environment:
-    NETBIRD_RELEASE: "{{ netbird_version }}"
-    UPDATE_NETBIRD: "true"
+- name: Check NetBird package manager from config
+  slurp:
+    src: /etc/netbird/install.conf
+  register: netbird_config
+  failed_when: false
+  when:
+    - netbird_is_installed
+    - netbird_version == "latest" or netbird_desired_version_normalized != netbird_current_version
+
+- name: Update netbird via package manager
+  block:
+    - name: Update via apt
+      ansible.builtin.apt:
+        name: "{{ 'netbird=' + netbird_desired_version_normalized if netbird_version != 'latest' else 'netbird' }}"
+        state: "{{ 'present' if netbird_version != 'latest' else 'latest' }}"
+        update_cache: yes
+      become: yes
+      when: "'package_manager=apt' in (netbird_config.content | b64decode)"
+
+    - name: Update via dnf
+      ansible.builtin.dnf:
+        name: "{{ 'netbird-' + netbird_desired_version_normalized if netbird_version != 'latest' else 'netbird' }}"
+        state: "{{ 'present' if netbird_version != 'latest' else 'latest' }}"
+      become: yes
+      when: "'package_manager=dnf' in (netbird_config.content | b64decode)"
+
+    - name: Update via yum
+      ansible.builtin.yum:
+        name: "{{ 'netbird-' + netbird_desired_version_normalized if netbird_version != 'latest' else 'netbird' }}"
+        state: "{{ 'present' if netbird_version != 'latest' else 'latest' }}"
+      become: yes
+      when: "'package_manager=yum' in (netbird_config.content | b64decode)"
+
+    - name: Update via install script (binary/fallback)
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+      environment:
+        NETBIRD_RELEASE: "{{ netbird_version }}"
+        UPDATE_NETBIRD: "true"
+      become: yes
+      when: >
+        netbird_config.content is not defined or
+        not ('package_manager=apt' in (netbird_config.content | b64decode) or
+             'package_manager=dnf' in (netbird_config.content | b64decode) or  
+             'package_manager=yum' in (netbird_config.content | b64decode))
+
   when:
     - netbird_is_installed
     - netbird_version == "latest" or netbird_desired_version_normalized != netbird_current_version
