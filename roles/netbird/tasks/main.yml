@@ -120,4 +120,4 @@
     - netbird_allow_ssh | bool
     - "'Connected' in netbird_status.stdout or 'Connecting' in netbird_status.stdout"
     - netbird_ssh_status.stdout is defined
-    - "'disabled' in netbird_ssh_status.stdout or 'SSH Server' not in netbird_ssh_status.stdout"
+    - "'Disabled' in netbird_ssh_status.stdout or 'SSH Server' not in netbird_ssh_status.stdout"
