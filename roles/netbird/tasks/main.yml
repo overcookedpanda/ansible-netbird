@@ -72,7 +72,7 @@
 
 - name: Check netbird daemon status
   ansible.builtin.shell:
-    cmd: 'netbird status | grep "Daemon status"'
+    cmd: 'netbird status'
   register: netbird_status
   changed_when: false
   ignore_errors: true
