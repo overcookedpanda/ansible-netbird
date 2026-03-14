@@ -2,3 +2,11 @@
 # defaults file for netbird
 netbird_mgmt_url: https://api.netbird.io:443
 netbird_version: latest
+
+# SSH server options (requires Netbird v0.61.0+)
+netbird_allow_ssh: false
+netbird_ssh_sftp: false
+netbird_ssh_root: false
+netbird_ssh_local_port_forwarding: false
+netbird_ssh_remote_port_forwarding: false
+netbird_ssh_disable_auth: false

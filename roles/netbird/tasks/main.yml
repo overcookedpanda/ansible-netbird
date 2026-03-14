@@ -78,9 +78,46 @@
   ignore_errors: true
   when: netbird_register is true
 
+- name: Build netbird up command
+  ansible.builtin.set_fact:
+    netbird_up_cmd: >-
+      netbird up
+      --setup-key="{{ netbird_setup_key }}"
+      --management-url="{{ netbird_mgmt_url }}"
+      {{ '--allow-server-ssh' if netbird_allow_ssh | bool else '' }}
+      {{ '--enable-ssh-sftp' if netbird_allow_ssh | bool and netbird_ssh_sftp | bool else '' }}
+      {{ '--enable-ssh-root' if netbird_allow_ssh | bool and netbird_ssh_root | bool else '' }}
+      {{ '--enable-ssh-local-port-forwarding' if netbird_allow_ssh | bool and netbird_ssh_local_port_forwarding | bool else '' }}
+      {{ '--enable-ssh-remote-port-forwarding' if netbird_allow_ssh | bool and netbird_ssh_remote_port_forwarding | bool else '' }}
+      {{ '--disable-ssh-auth' if netbird_allow_ssh | bool and netbird_ssh_disable_auth | bool else '' }}
+  when: netbird_register is true
+
 - name: Start Netbird
   become: true
-  ansible.builtin.shell: netbird up --setup-key="{{ netbird_setup_key }}" --management-url="{{ netbird_mgmt_url }}"
+  ansible.builtin.shell: "{{ netbird_up_cmd }}"
   when:
     - netbird_register is true
     - "'NeedsLogin' in netbird_status.stdout or 'LoginFailed' in netbird_status.stdout"
+
+- name: Check if SSH server is enabled
+  ansible.builtin.shell:
+    cmd: 'netbird status | grep "SSH Server"'
+  register: netbird_ssh_status
+  changed_when: false
+  failed_when: false
+  when:
+    - netbird_register is true
+    - netbird_allow_ssh | bool
+    - "'Connected' in netbird_status.stdout or 'Connecting' in netbird_status.stdout"
+
+- name: Reconfigure Netbird with SSH flags
+  become: true
+  ansible.builtin.shell: |
+    netbird down
+    {{ netbird_up_cmd }}
+  when:
+    - netbird_register is true
+    - netbird_allow_ssh | bool
+    - "'Connected' in netbird_status.stdout or 'Connecting' in netbird_status.stdout"
+    - netbird_ssh_status.stdout is defined
+    - "'disabled' in netbird_ssh_status.stdout or 'SSH Server' not in netbird_ssh_status.stdout"
