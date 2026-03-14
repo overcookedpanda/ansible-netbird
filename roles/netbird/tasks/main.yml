@@ -99,6 +99,21 @@
     - netbird_register is true
     - "'NeedsLogin' in netbird_status.stdout or 'LoginFailed' in netbird_status.stdout"
 
+- name: Build netbird SSH reconfigure command
+  ansible.builtin.set_fact:
+    netbird_ssh_cmd: >-
+      netbird up
+      --management-url="{{ netbird_mgmt_url }}"
+      {{ '--allow-server-ssh' if netbird_allow_ssh | bool else '' }}
+      {{ '--enable-ssh-sftp' if netbird_allow_ssh | bool and netbird_ssh_sftp | bool else '' }}
+      {{ '--enable-ssh-root' if netbird_allow_ssh | bool and netbird_ssh_root | bool else '' }}
+      {{ '--enable-ssh-local-port-forwarding' if netbird_allow_ssh | bool and netbird_ssh_local_port_forwarding | bool else '' }}
+      {{ '--enable-ssh-remote-port-forwarding' if netbird_allow_ssh | bool and netbird_ssh_remote_port_forwarding | bool else '' }}
+      {{ '--disable-ssh-auth' if netbird_allow_ssh | bool and netbird_ssh_disable_auth | bool else '' }}
+  when:
+    - netbird_register is true
+    - netbird_allow_ssh | bool
+
 - name: Check if SSH server is enabled
   ansible.builtin.shell:
     cmd: 'netbird status | grep "SSH Server"'
@@ -114,7 +129,8 @@
   become: true
   ansible.builtin.shell: |
     netbird down
-    {{ netbird_up_cmd }}
+    sleep 3
+    {{ netbird_ssh_cmd }}
   when:
     - netbird_register is true
     - netbird_allow_ssh | bool
